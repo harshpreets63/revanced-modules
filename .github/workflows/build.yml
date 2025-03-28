@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "config.toml"
+    schedule:
+    - cron: '0 0 * * 6'
 
 jobs:
   run:
@@ -113,7 +115,7 @@ jobs:
         run: |
           cd build || { echo "build folder not found"; exit 1; }
 
-          TG_CHAT="@RM6785_Chat_OT"
+          TG_CHAT="641136617"
           NL=$'\n'
           APKS=""
           MODULES=""
@@ -141,7 +143,6 @@ jobs:
           *Download APKs:*
           ${APKS}
 
-          *By* [𝙴𝙻𝙾𝙷𝙸𝙼](https://t.me/elohim-etz)
 
           *🌟 Check out builder source:*
           https://github.com/elohim-etz/revanced-modules
