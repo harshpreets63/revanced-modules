@@ -13,6 +13,7 @@ included-patches = "'Custom branding icon for YouTube'"
 patcher-args = """\
   -OappIcon=mmt \
   """
+arch = "universal"
 patches-source = "anddea/revanced-patches"
 patches-version = "v3.5.0"
 rv-brand = "anddea ReVanced"
