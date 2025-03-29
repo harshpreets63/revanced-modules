@@ -5,9 +5,9 @@ on:
     branches:
       - main
     paths:
-      - "config.toml"
+      - 'config.toml'
     schedule:
-    - cron: '0 0 * * 6'
+      - cron: '0 0 * * 6'
 
 jobs:
   run:
@@ -16,8 +16,8 @@ jobs:
     steps:
       - uses: actions/setup-java@v4
         with:
-          distribution: "zulu"
-          java-version: "17"
+          distribution: 'zulu'
+          java-version: '17'
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -114,6 +114,10 @@ jobs:
         if: env.TG_TOKEN != null
         run: |
           cd build || { echo "build folder not found"; exit 1; }
+          if [ -z "$(ls -A .)" ]; then
+            echo "No files found in build directory"
+            exit 1
+          fi
 
           TG_CHAT="641136617"
           NL=$'\n'
@@ -121,11 +125,11 @@ jobs:
           MODULES=""
           for OUTPUT in *; do
             DL_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}/${OUTPUT}"
-            if [[ $OUTPUT = *.apk ]]; then
-              APKS+="${NL}⬇️ [${OUTPUT}](${DL_URL})"
-            elif [[ $OUTPUT = *.zip ]]; then
-              MODULES+="${NL}⬇️ [${OUTPUT}](${DL_URL})"
-            fi
+            case "$OUTPUT" in
+              *.apk) APKS+="${NL}⬇️ [${OUTPUT}](${DL_URL})" ;;
+              *.zip) MODULES+="${NL}⬇️ [${OUTPUT}](${DL_URL})" ;;
+              *) echo "Unmatched file: $OUTPUT" ;;
+            esac
           done
           MODULES=${MODULES#"$NL"}
           APKS=${APKS#"$NL"}
@@ -143,11 +147,58 @@ jobs:
           *Download APKs:*
           ${APKS}
 
-
           *🌟 Check out builder source:*
           https://github.com/elohim-etz/revanced-modules
           "
-          echo "'$MSG'"
-          MSG=${MSG:0:9450}
+
+          # Telegram message limit is 4096 characters, split if necessary
           POST="https://api.telegram.org/bot${TG_TOKEN}/sendMessage"
-          curl -X POST --data-urlencode "parse_mode=Markdown" --data-urlencode "disable_web_page_preview=true" --data-urlencode "text=${MSG}" --data-urlencode "chat_id=${TG_CHAT}" --data-urlencode "message_thread_id=${MESSAGE_THREAD_ID}" "$POST"
+          if [ ${#MSG} -gt 4096 ]; then
+            PART1=${MSG:0:4096}
+            PART2=${MSG:4096}
+            curl -X POST \
+              --data-urlencode "parse_mode=Markdown" \
+              --data-urlencode "disable_web_page_preview=true" \
+              --data-urlencode "text=${PART1}" \
+              --data-urlencode "chat_id=${TG_CHAT}" \
+              --data-urlencode "message_thread_id=${MESSAGE_THREAD_ID}" "$POST"
+            curl -X POST \
+              --data-urlencode "parse_mode=Markdown" \
+              --data-urlencode "disable_web_page_preview=true" \
+              --data-urlencode "text=${PART2}" \
+              --data-urlencode "chat_id=${TG_CHAT}" \
+              --data-urlencode "message_thread_id=${MESSAGE_THREAD_ID}" "$POST"
+          else
+            RESPONSE=$(curl -s -o response.txt -w "%{http_code}" -X POST \
+              --data-urlencode "parse_mode=Markdown" \
+              --data-urlencode "disable_web_page_preview=true" \
+              --data-urlencode "text=${MSG}" \
+              --data-urlencode "chat_id=${TG_CHAT}" \
+              --data-urlencode "message_thread_id=${MESSAGE_THREAD_ID}" "$POST")
+            if [ "$RESPONSE" -ne 200 ]; then
+              echo "Failed to send message to Telegram, status: $RESPONSE"
+              cat response.txt
+              exit 1
+            fi
+          fi
+
+          # Upload each build file as a document
+          SEND_DOC="https://api.telegram.org/bot${TG_TOKEN}/sendDocument"
+          for OUTPUT in *; do
+            case "$OUTPUT" in
+              *.apk | *.zip)
+                echo "Uploading $OUTPUT to Telegram..."
+                RESPONSE=$(curl -s -o response.txt -w "%{http_code}" -X POST \
+                  -F "chat_id=${TG_CHAT}" \
+                  -F "message_thread_id=${MESSAGE_THREAD_ID}" \
+                  -F "document=@${OUTPUT}" \
+                  "$SEND_DOC")
+                if [ "$RESPONSE" -ne 200 ]; then
+                  echo "Failed to upload $OUTPUT, status: $RESPONSE"
+                  cat response.txt
+                else
+                  echo "Successfully uploaded $OUTPUT"
+                fi
+                ;;
+            esac
+          done
