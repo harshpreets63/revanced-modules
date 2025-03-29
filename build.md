@@ -1,4 +1,4 @@
-Music: 8.02.53  
+Music: 8.10.51  
 YouTube: 19.44.39  
 
 Install [Microg-RE](https://github.com/WSTxda/MicroG-RE/releases/latest) for non-root YouTube and YT Music APKs  
