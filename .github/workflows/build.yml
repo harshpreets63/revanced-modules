@@ -113,20 +113,27 @@ jobs:
         run: |
           cd build || { echo "build folder not found"; exit 1; }
 
-          TG_CHAT="@RM6785_Chat_OT"
+          TG_CHAT="641136617"
           NL=$'\n'
           APKS=""
           MODULES=""
+          TG_FILES=""
+
           for OUTPUT in *; do
             DL_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}/${OUTPUT}"
+            TG_RESPONSE=$(curl -s -F "chat_id=${TG_CHAT}" -F "document=@$OUTPUT" -F "caption=$OUTPUT" "https://api.telegram.org/bot${TG_TOKEN}/sendDocument")
+            FILE_ID=$(echo "$TG_RESPONSE" | jq -r '.result.document.file_id')
+
             if [[ $OUTPUT = *.apk ]]; then
               APKS+="${NL}⬇️ [${OUTPUT}](${DL_URL})"
             elif [[ $OUTPUT = *.zip ]]; then
               MODULES+="${NL}⬇️ [${OUTPUT}](${DL_URL})"
             fi
+            TG_FILES+="${NL}📄 [$OUTPUT](https://t.me/${TG_CHAT#@}/${FILE_ID})"
           done
           MODULES=${MODULES#"$NL"}
           APKS=${APKS#"$NL"}
+          TG_FILES=${TG_FILES#"$NL"}
 
           BODY="$(sed 's/^\* \*\*/↪ \*\*/g; s/^\* `/↪ \*\*/g; s/`/\*/g; s/^\* /\↪/g; s/\*\*/\*/g; s/###//g; s/^- /↪ /g; /^==/d;' ../build.md)"
           MSG="*New Revanced build! 🎉*
@@ -141,12 +148,14 @@ jobs:
           *Download APKs:*
           ${APKS}
 
+          *Telegram File Links:*
+          ${TG_FILES}
+
           *By* [𝙴𝙻𝙾𝙷𝙸𝙼](https://t.me/elohim-etz)
 
           *🌟 Check out builder source:*
           https://github.com/elohim-etz/revanced-modules
           "
-          echo "'$MSG'"
           MSG=${MSG:0:9450}
           POST="https://api.telegram.org/bot${TG_TOKEN}/sendMessage"
           curl -X POST --data-urlencode "parse_mode=Markdown" --data-urlencode "disable_web_page_preview=true" --data-urlencode "text=${MSG}" --data-urlencode "chat_id=${TG_CHAT}" --data-urlencode "message_thread_id=${MESSAGE_THREAD_ID}" "$POST"
