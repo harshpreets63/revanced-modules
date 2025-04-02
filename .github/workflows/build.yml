@@ -6,8 +6,8 @@ on:
       - main
     paths:
       - 'config.toml'
-    schedule:
-      - cron: '0 0 * * *'
+  schedule:
+    - cron: '0 0 * * *'
 
 jobs:
   run:
