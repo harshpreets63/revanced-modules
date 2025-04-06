@@ -1,5 +1,4 @@
 enable-module-update = true # set this to false if you do not want to receive updates for the module in magisk app
-parallel-jobs = 1
 
 # add 'enabled = false' for not patching a specific app or remove it from the config
 # see https://github.com/j-hc/revanced-magisk-module/blob/main/CONFIG.md for more detailed explanations
@@ -14,7 +13,7 @@ patcher-args = """\
   -OappIcon=mmt \
   """
 patches-source = "anddea/revanced-patches"
-patches-version = "v3.5.0"
+patches-version = "v3.6.0-dev.8"
 rv-brand = "anddea ReVanced"
 riplib = true  
 apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube"
@@ -29,7 +28,7 @@ patcher-args = """\
   -OappIcon=mmt \
   """
 patches-source = "anddea/revanced-patches"
-patches-version = "v3.5.0"
+patches-version = "v3.6.0-dev.8"
 rv-brand = "anddea ReVanced"
 riplib = true   
 apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube-music"
