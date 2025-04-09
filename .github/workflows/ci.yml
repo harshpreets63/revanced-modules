@@ -1,6 +1,9 @@
 name: CI
+
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * *'  # 4 AM UTC = 11 PM EST (previous day)
 
 jobs:
   check:
@@ -14,23 +17,31 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Get latest patch version from anddea/revanced-patches
+        id: latest_patch
+        run: |
+          LATEST=$(curl -s https://api.github.com/repos/anddea/revanced-patches/releases/latest | jq -r .tag_name)
+          echo "Latest patch version: $LATEST"
+          echo "LATEST_PATCH=$LATEST" >> $GITHUB_OUTPUT
+
       - name: Should build?
         id: should_build
         shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LATEST_PATCH: ${{ steps.latest_patch.outputs.LATEST_PATCH }}
         run: |
           if ! git checkout origin/update -- build.md; then
-            echo "first time building!"
+            echo "First build (no build.md), proceeding."
             echo "SHOULD_BUILD=1" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if grep -q "anddea.*${LATEST_PATCH}" build.md; then
+            echo "No update needed. Latest patch already used: ${LATEST_PATCH}"
+            echo "SHOULD_BUILD=0" >> $GITHUB_OUTPUT
           else
-            UPDATE_CFG=$(./build.sh config.toml --config-update)
-            if [ "$UPDATE_CFG" ]; then
-              echo "'$UPDATE_CFG'"
-              echo "SHOULD_BUILD=1" >> $GITHUB_OUTPUT
-            else
-              echo "SHOULD_BUILD=0" >> $GITHUB_OUTPUT
-            fi
+            echo "New patch release detected: ${LATEST_PATCH}"
+            echo "SHOULD_BUILD=1" >> $GITHUB_OUTPUT
           fi
 
       - name: Clear older runs
@@ -44,6 +55,8 @@ jobs:
     needs: check
     if: ${{ needs.check.outputs.SHOULD_BUILD == '1' }}
     uses: ./.github/workflows/build.yml
+    with:
+      from_ci: true
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       TG_TOKEN: ${{ secrets.TG_TOKEN }}
