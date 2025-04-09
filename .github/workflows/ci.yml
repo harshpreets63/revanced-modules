@@ -44,4 +44,7 @@ jobs:
     needs: check
     if: ${{ needs.check.outputs.SHOULD_BUILD == '1' }}
     uses: ./.github/workflows/build.yml
-    secrets: inherit
+    secrets:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TG_TOKEN: ${{ secrets.TG_TOKEN }}
+      MESSAGE_THREAD_ID: ${{ secrets.MESSAGE_THREAD_ID }}
