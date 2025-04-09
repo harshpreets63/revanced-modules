@@ -1,4 +1,5 @@
 name: Build Modules
+
 on:
   workflow_dispatch:
   push:
@@ -8,6 +9,18 @@ on:
       - 'config.toml'
   schedule:
     - cron: '0 0 * * *'
+  workflow_call:
+    inputs:
+      from_ci:
+        required: false
+        type: boolean
+    secrets:
+      GITHUB_TOKEN:
+        required: true
+      TG_TOKEN:
+        required: false
+      MESSAGE_THREAD_ID:
+        required: false
 
 jobs:
   run:
@@ -28,7 +41,7 @@ jobs:
       - name: Update config
         if: ${{ inputs.from_ci }}
         run: |
-          if git checkout origin/update build.md; then
+          if git checkout origin/update -- build.md; then
             UPDATE_CFG=$(./build.sh config.toml --config-update)
             if [ "$UPDATE_CFG" ]; then
               echo "$UPDATE_CFG" > config.json
@@ -151,7 +164,6 @@ jobs:
           https://github.com/elohim-etz/revanced-modules
           "
 
-          # Telegram message limit is 4096 characters, split if necessary
           POST="https://api.telegram.org/bot${TG_TOKEN}/sendMessage"
           if [ ${#MSG} -gt 4096 ]; then
             PART1=${MSG:0:4096}
@@ -182,7 +194,6 @@ jobs:
             fi
           fi
 
-          # Upload each build file as a document
           SEND_DOC="https://api.telegram.org/bot${TG_TOKEN}/sendDocument"
           for OUTPUT in *; do
             case "$OUTPUT" in
