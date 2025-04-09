@@ -15,10 +15,10 @@ on:
         required: false
         type: boolean
     secrets:
-      GITHUB_TOKEN:
+      GH_TOKEN:
         required: true
       TG_TOKEN:
-        required: false
+        required: true
       MESSAGE_THREAD_ID:
         required: false
 
