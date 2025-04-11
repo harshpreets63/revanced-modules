@@ -20,7 +20,7 @@ jobs:
       - name: Get latest patch version from anddea/revanced-patches
         id: latest_patch
         run: |
-          LATEST=$(curl -s https://api.github.com/repos/anddea/revanced-patches/releases/ | jq -r '.[0].tag_name')
+          LATEST=$(curl -s https://api.github.com/repos/anddea/revanced-patches/releases | jq -r '.[0].tag_name')
           echo "Latest patch version: $LATEST"
           echo "LATEST_PATCH=$LATEST" >> $GITHUB_OUTPUT
 
