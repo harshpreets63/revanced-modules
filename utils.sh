@@ -69,6 +69,9 @@ get_rv_prebuilts() {
 		elif [ "$ver" = "latest" ]; then
 			rv_rel+="/latest"
 			name_ver="*"
+                elif [ "$ver" = "any" ]; then
+                        rv_rel+=""
+                        name_ver="*"
 		else
 			rv_rel+="/tags/${ver}"
 			name_ver="$ver"
@@ -79,7 +82,7 @@ get_rv_prebuilts() {
 		if [ -z "$file" ]; then
 			local resp asset name
 			resp=$(gh_req "$rv_rel" -) || return 1
-			if [ "$ver" = "dev" ]; then resp=$(jq -r '.[0]' <<<"$resp"); fi
+			if [ "$ver" = "dev" ] || [ "$ver" = "any" ]; then resp=$(jq -r '.[0]' <<<"$resp"); fi
 			tag_name=$(jq -r '.tag_name' <<<"$resp")
 			asset=$(jq -e -r ".assets[] | select(.name | endswith(\"$ext\"))" <<<"$resp") || return 1
 			url=$(jq -r .url <<<"$asset")
@@ -92,6 +95,8 @@ get_rv_prebuilts() {
 			local for_err=$file
 			if [ "$ver" = "latest" ]; then
 				file=$(grep -v '/[^/]*dev[^/]*$' <<<"$file" | head -1)
+                        elif [ "$ver" != "any" ]; then
+                                file=$(grep "/[^/]*${ver#v}[^/]*\$" <<<"$file" | head -1)
 			else file=$(grep "/[^/]*${ver#v}[^/]*\$" <<<"$file" | head -1); fi
 			if [ -z "$file" ]; then abort "filter fail: '$for_err' with '$ver'"; fi
 			name=$(basename "$file")
@@ -152,7 +157,7 @@ config_update() {
 		else
 			sources["$PATCHES_SRC/$PATCHES_VER"]=0
 			local rv_rel="https://api.github.com/repos/${PATCHES_SRC}/releases"
-			if [ "$PATCHES_VER" = "dev" ]; then
+			if [ "$PATCHES_VER" = "dev" ] || [ "$PATCHES_VER" = "any" ]; then
 				last_patches=$(gh_req "$rv_rel" - | jq -e -r '.[0]')
 			elif [ "$PATCHES_VER" = "latest" ]; then
 				last_patches=$(gh_req "$rv_rel/latest" -)
