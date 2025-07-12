@@ -129,17 +129,13 @@ get_rv_prebuilts() {
 }
 
 set_prebuilts() {
-    APKSIGNER="${BIN_DIR}/apksigner.jar"
-    if [ "$OS" = Android ]; then
-        local arch
-        if [ "$(uname -m)" = aarch64 ]; then arch=arm64; else arch=arm; fi
-        HTMLQ="${BIN_DIR}/htmlq/htmlq-${arch}"
-        AAPT2="${BIN_DIR}/aapt2/aapt2-${arch}"
-        TOML="${BIN_DIR}/toml/tq-${arch}"
-    else
-        HTMLQ="${BIN_DIR}/htmlq/htmlq-x86_64"
-        TOML="${BIN_DIR}/toml/tq-x86_64"
-    fi
+	APKSIGNER="${BIN_DIR}/apksigner.jar"
+	local arch
+	arch=$(uname -m)
+	if [ "$arch" = aarch64 ]; then arch=arm64; elif [ "${arch:0:5}" = "armv7" ]; then arch=arm; fi
+	HTMLQ="${BIN_DIR}/htmlq/htmlq-${arch}"
+	AAPT2="${BIN_DIR}/aapt2/aapt2-${arch}"
+	TOML="${BIN_DIR}/toml/tq-${arch}"
 }
 
 config_update() {
@@ -317,29 +313,29 @@ apk_mirror_search() {
     return 1
 }
 dl_apkmirror() {
-    local url=$1 version=${2// /-} output=$3 arch=$4 dpi=$5 is_bundle=false
-    if [ -f "${output}.apkm" ]; then
-        is_bundle=true
-    else
-        if [ "$arch" = "arm-v7a" ]; then arch="armeabi-v7a"; fi
-        local resp node app_table uurl dlurl=""
-        uurl=$(grep -F "downloadLink" <<<"$__APKMIRROR_RESP__" | grep -F "${version//./-}-release/" |
-            sed -n 's;.*href="\(.*-release\).*;\1;p')
-        if [ -z "$uurl" ]; then url="${url}/${url##*/}-${version//./-}-release/"; else url=https://www.apkmirror.com$uurl; fi
-        resp=$(req "$url" -) || return 1
-        node=$($HTMLQ "div.table-row.headerFont:nth-last-child(1)" -r "span:nth-child(n+3)" <<<"$resp")
-        if [ "$node" ]; then
-            if ! dlurl=$(apk_mirror_search "$resp" "$dpi" "${arch}" "APK"); then
-                if ! dlurl=$(apk_mirror_search "$resp" "$dpi" "${arch}" "BUNDLE"); then
-                    return 1
-                else is_bundle=true; fi
-            fi
-            [ -z "$dlurl" ] && return 1
-            resp=$(req "$dlurl" -)
-        fi
-        url=$(echo "$resp" | $HTMLQ --base https://www.apkmirror.com --attribute href "a.btn") || return 1
-        url=$(req "$url" - | $HTMLQ --base https://www.apkmirror.com --attribute href "span > a[rel = nofollow]") || return 1
-    fi
+	local url=$1 version=${2// /-} output=$3 arch=$4 dpi=$5 is_bundle=false
+	if [ -f "${output}.apkm" ]; then
+		is_bundle=true
+	else
+		if [ "$arch" = "arm-v7a" ]; then arch="armeabi-v7a"; fi
+		local resp node app_table apkmname dlurl=""
+		apkmname=$($HTMLQ "h1.marginZero" --text <<<"$__APKMIRROR_RESP__")
+		apkmname="${apkmname,,}" apkmname="${apkmname// /-}" apkmname="${apkmname//[^a-z0-9-]/}"
+		url="${url}/${apkmname}-${version//./-}-release/"
+		resp=$(req "$url" -) || return 1
+		node=$($HTMLQ "div.table-row.headerFont:nth-last-child(1)" -r "span:nth-child(n+3)" <<<"$resp")
+		if [ "$node" ]; then
+			if ! dlurl=$(apk_mirror_search "$resp" "$dpi" "${arch}" "APK"); then
+				if ! dlurl=$(apk_mirror_search "$resp" "$dpi" "${arch}" "BUNDLE"); then
+					return 1
+				else is_bundle=true; fi
+			fi
+			[ -z "$dlurl" ] && return 1
+			resp=$(req "$dlurl" -)
+		fi
+		url=$(echo "$resp" | $HTMLQ --base https://www.apkmirror.com --attribute href "a.btn") || return 1
+		url=$(req "$url" - | $HTMLQ --base https://www.apkmirror.com --attribute href "span > a[rel = nofollow]") || return 1
+	fi
 
     if [ "$is_bundle" = true ]; then
         req "$url" "${output}.apkm" || return 1
@@ -376,36 +372,49 @@ get_uptodown_resp() {
 }
 get_uptodown_vers() { $HTMLQ --text ".version" <<<"$__UPTODOWN_RESP__"; }
 dl_uptodown() {
-    local uptodown_dlurl=$1 version=$2 output=$3 arch=$4 _dpi=$5
-    if [ "$arch" = "arm-v7a" ]; then arch="armeabi-v7a"; fi
-    local op resp data_code
-    data_code=$($HTMLQ "#detail-app-name" --attribute data-code <<<"$__UPTODOWN_RESP__")
-    local versionURL=""
-    for i in {1..5}; do
-        resp=$(req "${uptodown_dlurl}/apps/${data_code}/versions/${i}" -)
-        if ! op=$(jq -e -r ".data | map(select(.version == \"${version}\" and .kindFile == \"apk\")) | .[0]" <<<"$resp"); then
-            continue
-        fi
-        if versionURL=$(jq -e -r '.versionURL' <<<"$op"); then break; else return 1; fi
-    done
-    if [ -z "$versionURL" ]; then return 1; fi
-    resp=$(req "$versionURL" -) || return 1
-    if [ "$arch" != all ]; then
-        local data_version files node_arch data_file_id
-        data_version=$($HTMLQ '.button.variants' --attribute data-version <<<"$resp") || return 1
-        files=$(req "${uptodown_dlurl%/*}/app/${data_code}/version/${data_version}/files" - | jq -e -r .content) || return 1
-        for ((n = 1; n < 12; n += 2)); do
-            node_arch=$($HTMLQ ".content > p:nth-child($n)" --text <<<"$files" | xargs) || return 1
-            if [ -z "$node_arch" ]; then return 1; fi
-            if [ "$node_arch" != "$arch" ]; then continue; fi
-            data_file_id=$($HTMLQ "div.variant:nth-child($((n + 1))) > .v-report" --attribute data-file-id <<<"$files") || return 1
-            resp=$(req "${uptodown_dlurl}/download/${data_file_id}" -)
-            break
-        done
-    fi
-    local data_url
-    data_url=$($HTMLQ "#detail-download-button" --attribute data-url <<<"$resp") || return 1
-    req "https://dw.uptodown.com/dwn/${data_url}" "$output"
+	local uptodown_dlurl=$1 version=$2 output=$3 arch=$4 _dpi=$5
+	local apparch
+	if [ "$arch" = "arm-v7a" ]; then arch="armeabi-v7a"; fi
+	if [ "$arch" = all ]; then
+		apparch=('arm64-v8a, armeabi-v7a, x86, x86_64' 'arm64-v8a, armeabi-v7a')
+	else apparch=("$arch" 'arm64-v8a, armeabi-v7a, x86, x86_64' 'arm64-v8a, armeabi-v7a'); fi
+
+	local op resp data_code
+	data_code=$($HTMLQ "#detail-app-name" --attribute data-code <<<"$__UPTODOWN_RESP__")
+	local versionURL=""
+	local is_bundle=false
+	for i in {1..5}; do
+		resp=$(req "${uptodown_dlurl}/apps/${data_code}/versions/${i}" -)
+		if ! op=$(jq -e -r ".data | map(select(.version == \"${version}\")) | .[0]" <<<"$resp"); then
+			continue
+		fi
+		if [ "$(jq -e -r ".kindFile" <<<"$op")" = "xapk" ]; then is_bundle=true; fi
+		if versionURL=$(jq -e -r '.versionURL' <<<"$op"); then break; else return 1; fi
+	done
+	if [ -z "$versionURL" ]; then return 1; fi
+	resp=$(req "$versionURL" -) || return 1
+
+	local data_version files node_arch data_file_id
+	data_version=$($HTMLQ '.button.variants' --attribute data-version <<<"$resp") || return 1
+	if [ "$data_version" ]; then
+		files=$(req "${uptodown_dlurl%/*}/app/${data_code}/version/${data_version}/files" - | jq -e -r .content) || return 1
+		for ((n = 1; n < 12; n += 2)); do
+			node_arch=$($HTMLQ ".content > p:nth-child($n)" --text <<<"$files" | xargs) || return 1
+			if [ -z "$node_arch" ]; then return 1; fi
+			if ! isoneof "$node_arch" "${apparch[@]}"; then continue; fi
+			data_file_id=$($HTMLQ "div.variant:nth-child($((n + 1))) > .v-report" --attribute data-file-id <<<"$files") || return 1
+			resp=$(req "${uptodown_dlurl}/download/${data_file_id}-x" -)
+			break
+		done
+	fi
+	local data_url
+	data_url=$($HTMLQ "#detail-download-button" --attribute data-url <<<"$resp") || return 1
+	if [ $is_bundle = true ]; then
+		req "https://dw.uptodown.com/dwn/${data_url}" "$output.apkm" || return 1
+		merge_splits "${output}.apkm" "${output}"
+	else
+		req "https://dw.uptodown.com/dwn/${data_url}" "$output"
+	fi
 }
 get_uptodown_pkg_name() { $HTMLQ --text "tr.full:nth-child(1) > td:nth-child(3)" <<<"$__UPTODOWN_RESP_PKG__"; }
 
@@ -591,14 +600,14 @@ build_rv() {
 
         module_config "$base_template" "$pkg_name" "$version" "$arch"
 
-        local rv_patches_ver="${rv_patches_jar##*-}"
-        module_prop \
-            "${args[module_prop_name]}" \
-            "${app_name} ${args[rv_brand]}" \
-            "${version} (patches: ${rv_patches_ver%%.rvp})" \
-            "${app_name} ${args[rv_brand]} Revanced module" \
-            "https://raw.githubusercontent.com/${GITHUB_REPOSITORY-}/update/${upj}" \
-            "$base_template"
+		local rv_patches_ver="${rv_patches_jar##*-}"
+		module_prop \
+			"${args[module_prop_name]}" \
+			"${app_name} ${args[rv_brand]}" \
+			"${version} (patches ${rv_patches_ver%%.rvp})" \
+			"${app_name} ${args[rv_brand]} Revanced module" \
+			"https://raw.githubusercontent.com/${GITHUB_REPOSITORY-}/update/${upj}" \
+			"$base_template"
 
         local module_output="${app_name_l}-${rv_brand_f}-module-v${version_f}-${arch_f}.zip"
         pr "Packing module ${table}"
