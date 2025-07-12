@@ -1,3 +1,4 @@
+Spotify: 9.0.62.603  
 Music: 8.12.53  
 YouTube: 19.47.53  
 
