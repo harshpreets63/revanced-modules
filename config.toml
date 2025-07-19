@@ -27,7 +27,7 @@ uptodown-dlurl = "https://youtube.en.uptodown.com/android"
 [Music]
 build-mode = "both"
 enabled = true
-version = "18.24.52"
+version = "8.24.54"
 included-patches = "'Custom branding icon for YouTube Music'"
 patcher-args = """\
   -OappIcon=mmt \
