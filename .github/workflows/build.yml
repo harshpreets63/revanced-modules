@@ -159,7 +159,7 @@ jobs:
           ${APKS}
 
           *🌟 Check out builder source:*
-          https://github.com/elohim-etz/revanced-modules
+          https://github.com/harshpreets63/revanced-modules
           "
 
           POST="https://api.telegram.org/bot${TG_TOKEN}/sendMessage"

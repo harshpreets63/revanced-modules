@@ -639,7 +639,7 @@ module_prop() {
 name=${2}
 version=v${3}
 versionCode=${NEXT_VER_CODE}
-author=𝙴𝙻𝙾𝙷𝙸𝙼
+author=PeruNoob
 description=${4}" >"${6}/module.prop"
 
     if [ "$ENABLE_MODULE_UPDATE" = true ]; then echo "updateJson=${5}" >>"${6}/module.prop"; fi
